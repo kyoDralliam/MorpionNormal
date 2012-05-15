@@ -1,7 +1,7 @@
 open OcsfmlWindow
 open OcsfmlGraphics
 open Camera2d
-open Morpion2
+open Morpion
 
 
 let rec while_opt f g x = match f () with 
@@ -22,6 +22,24 @@ let _ =
   apply_morpion morpion [NorthWest] (fun geom _ -> creer_grille geom) ;
   let camera2D = camera2D app in 
   
+  let cursor = 
+    let cercle_spr = new circle_shape ~radius:30. ~fill_color:Color.red ~outline_color:Color.black ~outline_thickness:2. () in
+    let croix_spr = new rectangle_shape ~size:(40.,40.) ~fill_color:Color.blue ~outline_color:Color.black ~outline_thickness:2. () in 
+    let grid_texture = new texture (`File "grid.png") in 
+    let grid_spr = new sprite ~texture:grid_texture () in 
+    cercle_spr # scale 0.75 0.75 ; croix_spr # scale 0.75 0.75 ; grid_spr # scale 0.75 0.75 ; 
+    let eval () = 
+      let x, y = app#convert_coords ~view:app#get_default_view (Mouse.get_relative_position app) in 
+      let pos = x +. 10.0, y +. 10.0 in 
+      if Keyboard.is_key_pressed KeyCode.LControl 
+      then (cercle_spr#set_position_v pos ; app#draw cercle_spr)
+      else if Keyboard.is_key_pressed KeyCode.LAlt
+      then (croix_spr#set_position_v pos ; app#draw croix_spr)
+      else if Keyboard.is_key_pressed KeyCode.LShift
+      then (grid_spr#set_position_v pos ; app#draw grid_spr)
+    in eval
+  in 
+
   let process_event b evt =
     let open Event in 
     match evt with 
@@ -56,6 +74,7 @@ let _ =
   let display () = 
     app#clear ~color:Color.white () ;
     draw app morpion ;
+    cursor () ;
     app#display
   in 
 
