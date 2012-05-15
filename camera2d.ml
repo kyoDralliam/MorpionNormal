@@ -48,5 +48,21 @@ object (self)
     view#zoom z ;
     view#move goal_x goal_y
 
+  method recenter geometry = 
+    let open Morpion in 
+    view#set_size (geometry.dimension *. (float app#get_width) /. (float app#get_height)) geometry.dimension ;
+    view#set_center (fst geometry.position +. (geometry.dimension/.2.)) (snd geometry.position +. (geometry.dimension/.2.)) ;
+    view#zoom 1.15 ;
+    app#set_view view
+(*
+    let rect = { 
+      left = fst geometry.position ; 
+      top = snd geometry.position ; 
+      width = geometry.dimension *. (float app#get_width) /. (float app#get_height) ; 
+      height = geometry.dimension  
+    } 
+    in 
+    view#reset rect *)
+
   method get_view = view
 end

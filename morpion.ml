@@ -35,6 +35,9 @@ let coords_from_morpion_case = function
   | West -> 0, 1
   | NorthWest -> 0, 0
 
+let access t c = let (x,y) = coords_from_morpion_case c in t.(x).(y)
+let change t c a = let (x,y) = coords_from_morpion_case c in t.(x).(y) <- a
+
 (* faut ptet arréter de faire l'idiot... 
 module String = struct
     let get t c = let (x,y) = coords_from_morpion_case c in t.(x).(y)
@@ -126,36 +129,52 @@ let rec draw (target : #render_target) = function
   | Vide (_, img) -> target#draw img
   | Coup (_, _, img, img0) -> target#draw img0 ; target#draw img
   | Grille (m, _, img) -> target#draw img ; Array.iter (Array.iter (draw target)) m
-
+  
 
 let position_coup_from_float pos geom entre cote = 
-  let antipos x = int_of_float ((x -. entre) /. (cote +. entre)) in 
+  let antipos x = 
+    let ik = int_of_float (x /. entre) in 
+    [| -1 ; 0 ; 0 ; 0; 0; 0 ; 0 ; 0 ; 0; -1 ; 1; 1; 1; 1; 1; 1; 1; 1; -1; 2; 2; 2; 2; 2; 2; 2; 2; -1 |].(ik) 
+  in 
   antipos ((fst pos) -. (fst geom.position)), antipos ((snd pos) -. (snd geom.position))
 
 
-let rec get_position_coup pos = function 
+let rec get_position_coup_base base pos = function 
   | Coup _ -> None
   | Vide _ -> Some []
   | Grille (m, { geometry ; inter ; side }, _) -> 
       let (x,y) = position_coup_from_float pos geometry inter side in 
       if x < 0 || x > 2 || y < 0 || y > 2 
-      then None 
+      then base 
       else 
-	match get_position_coup pos m.(x).(y) with 
+	match get_position_coup_base base pos m.(x).(y) with 
 	  | None -> None 
 	  | Some l -> Some ((morpion_case_from_coords x y) :: l)
 
-let rec apply_morpion morpion path f = 
-  match path, morpion with 
+let get_position_coup = get_position_coup_base (Some [])
+
+let get_position_coup_vide = get_position_coup_base None
+
+let rec get_content morpion path = 
+    match path, morpion with 
     | [a], Grille (m, _, _) ->
 	let (x,y) = coords_from_morpion_case a in 
 	(match m.(x).(y) with 
-	  | Vide (geom, img) -> m.(x).(y) <- f geom img
+	  | Vide (geom, img) -> (m, x, y, geom, img)
 	  | _ -> assert false)
-    | hd :: tl, Grille (m, _, _) -> 
-	let (x,y) = coords_from_morpion_case hd in 
-	apply_morpion m.(x).(y) tl f
+    | hd :: tl, Grille (m, _, _) -> get_content (access m hd) tl
     | _ -> assert false
+
+let apply_morpion morpion path f = 
+  let (m, x, y, geom, img) = get_content morpion path in 
+  m.(x).(y) <- f geom img
+
+let rec get_geometry morpion path = 
+  match path, morpion with 
+    | [], (Grille (_, {geometry ; _}, _) | Coup (_,geometry, _, _) | Vide (geometry, _)) -> geometry
+    | hd :: tl, Grille (m, _, _) -> get_geometry (access m hd) tl
+    | _ -> assert false
+
 
 let jouer_coup pos_joueur_cercle pos_joueur_croix morpion =
   if pos_joueur_cercle = pos_joueur_croix
@@ -180,3 +199,55 @@ let string_of_morpion_case =  function
 let print_position_coup = function  
   | None -> print_endline "pas de coup"
   | Some l -> print_endline (String.concat ", " (List.map string_of_morpion_case l))
+
+
+let victoire morpion l = 
+  let rec get_grid = function 
+    | [x], Grille (m, _, _) -> (m, x) 
+    | x :: xs, Grille (m, _, _) -> get_grid (xs, (access m x))
+    | _ -> assert false 
+  in 
+  let m, x = get_grid (l, morpion) in 
+  let cmp a b = 
+    match (access m a), (access m b) with 
+      | Coup (j1, _, _, _), Coup (j2, _, _, _) -> j1 = j2
+      | _ -> false 
+  in 
+  let is_same a b c = cmp a b && cmp b c in
+  match x with 
+      Center -> (is_same North Center South) || (is_same NorthEast Center SouthWest) || (is_same East Center West) || (is_same SouthEast Center NorthWest)
+    | North -> (is_same North Center South) || (is_same NorthWest North NorthEast) 
+    | NorthEast -> (is_same NorthWest North NorthEast) || (is_same NorthEast East SouthEast) || (is_same NorthEast Center SouthWest)
+    | East -> (is_same NorthEast East SouthEast) || (is_same East Center West)
+    | SouthEast -> (is_same NorthEast East SouthEast) || (is_same SouthEast Center NorthWest) || (is_same SouthEast South SouthWest)
+    | South -> (is_same SouthEast South SouthWest) || (is_same North Center South)
+    | SouthWest -> (is_same SouthEast South SouthWest) || (is_same NorthEast Center SouthWest) || (is_same SouthWest West NorthWest)
+    | West -> (is_same SouthWest West NorthWest) || (is_same East Center West)
+    | NorthWest -> (is_same NorthWest North NorthEast) || (is_same SouthEast Center NorthWest) || (is_same SouthWest West NorthWest)
+
+
+
+let rec replace_case f morpion path = 
+    match path, morpion with 
+    | [a], Grille (m, _, _) ->
+	let geom, img0 = match access m a with 
+	  | Vide (geom, img0) -> geom, img0
+	  | Coup (_, geom, _, img0) -> geom, img0
+	  | Grille (_,{geometry; _},img0) -> geometry, img0
+	in change m a (f geom img0)
+    | hd :: tl, Grille (m, _, _) -> replace_case f (access m hd) tl
+    | _ -> assert false
+
+
+let remove_last l = List.(rev (tl (rev l)))
+
+let rec process_victoire joueur morpion l = 
+  if victoire morpion l 
+  then 
+    if List.length l = 1 
+    then true (* victoire globale *)
+    else (* il reste des niveaux au dessus *)
+      let l' = remove_last l in 
+      replace_case (creer_joueur joueur) morpion l' ;
+      process_victoire joueur morpion l' 
+  else false
