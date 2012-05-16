@@ -54,15 +54,9 @@ object (self)
     view#set_center (fst geometry.position +. (geometry.dimension/.2.)) (snd geometry.position +. (geometry.dimension/.2.)) ;
     view#zoom 1.15 ;
     app#set_view view
-(*
-    let rect = { 
-      left = fst geometry.position ; 
-      top = snd geometry.position ; 
-      width = geometry.dimension *. (float app#get_width) /. (float app#get_height) ; 
-      height = geometry.dimension  
-    } 
-    in 
-    view#reset rect *)
 
-  method get_view = view
+  method enable = app#set_view view
+
+  method disable = app#set_view app#get_default_view
+
 end
