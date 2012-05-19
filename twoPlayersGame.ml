@@ -1,3 +1,4 @@
+
 open OcsfmlWindow
 open OcsfmlGraphics
 open Camera2d

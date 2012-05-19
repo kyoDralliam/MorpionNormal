@@ -52,7 +52,7 @@ let init_client (app : #render_window) =
   let socket = new tcp_socket in
   let buf = Buffer.create 0 in 
 
-  let enter_msg = new text ~string:"Connecting to server...\nEnter address and press Return\nEsc to exit" ~character_size:64 ~color:Color.black () in
+  let enter_msg = new text ~string:"Connecting to server...\nEnter address and press Return\nEsc to exit" ~character_size:48 ~color:Color.black () in
   place_middle enter_msg 200. ;
 
   let input = new text ~character_size:48 ~color:Color.black () in

@@ -19,7 +19,7 @@ let main_entry (app : #render_window) =
   ] in 
   
   place_middle name 75. ;
-  List.fold_left (fun y (txt, _) -> place_middle txt y; y+.150.) 400. board ;
+  ignore (List.fold_left (fun y (txt, _) -> place_middle txt y; y+.150.) 400. board) ;
 
   let display () = 
     app#clear ~color:Color.blue () ;
