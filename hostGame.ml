@@ -22,6 +22,7 @@ object
     | Client -> coup_client <- Some chemin
   method set_tps_client = tps_client <- true 
   method set_tps_host t = tps_host <- t
+  method get_result = coup_host, coup_client
 end
 
 
@@ -72,10 +73,16 @@ let main_one_player_host app (socket : #tcp_socket) =
       | _ -> None 
   in 
 
-  let process_playing_event b evt =
+  let process_playing_event play b evt =
     let open Event in 
     match evt with
-      | MouseButtonPressed (_, {x ; y}) -> Some b
+      | MouseButtonPressed (_, {x ; y}) -> 
+	  let pos = app#convert_coords (x,y) in 
+	  let path = get_position_coup_vide pos morpion in 
+          (match path with 
+	    | None -> ()
+	    | Some l -> play#set_coup l Host) ;
+	  Some b
       | _ -> None 
   in 
   
@@ -111,12 +118,24 @@ let main_one_player_host app (socket : #tcp_socket) =
       | None -> state
   in 
 
+  let process_result play = 
+      match play#get_result with 
+      | Some l1, Some l2 when l1 = l2 -> 
+	  send (`AddGrid l1) socket ;
+	  apply_morpion morpion l1 (fun geom _ -> creer_grille geom)
+      | (x, y) as chemins -> 
+	  send (`AddNormal chemins) socket ; 
+	  (match x with Some l1 -> apply_morpion morpion l1 (creer_joueur Croix) | None -> ()) ;
+	  (match y with Some l2 -> apply_morpion morpion l2 (creer_joueur Cercle) | None -> ())
+  in 
+
   let rec main_loop state play = 
     if play#finished
     then
       begin 
-	(* calculer les chemins et envoyer puis se rappeler récursivement avec un nouveau play *)
-	ignore ck#restart ; main_loop state (new play)
+	process_result play ;
+	ignore ck#restart ; 
+	main_loop state (new play)
       end 
     else 
       begin 
@@ -127,7 +146,7 @@ let main_one_player_host app (socket : #tcp_socket) =
 		(process_event [
 		   process_quit_event ; 
 		   process_camera_event ; 
-		   process_playing_event ; 
+		   process_playing_event play ; 
 		   process_enter_pause_event])
 		Playing in 
 	      play#set_tps_host ck#get_time ;

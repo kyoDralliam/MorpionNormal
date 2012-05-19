@@ -60,7 +60,13 @@ let main_one_player_client app (socket : #tcp_socket) =
   let process_playing_event b evt =
     let open Event in 
     match evt with
-      | MouseButtonPressed (_, {x ; y}) -> Some b
+      | MouseButtonPressed (_, {x ; y}) -> 
+	  let pos = app#convert_coords (x,y) in 
+	  let path = get_position_coup_vide pos morpion in 
+          (match path with 
+	    | None -> ()
+	    | Some l -> ignore (send (`Played l) socket)) ;
+	  Some b
       | _ -> None 
   in 
   
@@ -75,8 +81,13 @@ let main_one_player_client app (socket : #tcp_socket) =
 
  let process_remote_messages state = 
     match receive socket with 
-      | Some (`AddGrid chemin) -> ignore ck#restart ; state
-      | Some (`AddNormal (cheminCroix, cheminCercle)) -> ignore ck#restart ; state 
+      | Some (`AddGrid chemin) -> 
+	  apply_morpion morpion chemin (fun geom _ -> creer_grille geom) ; 
+	  ignore ck#restart ; state
+      | Some (`AddNormal (chemin_croix, chemin_cercle)) -> 
+	  (match chemin_croix with Some l1 -> apply_morpion morpion l1 (creer_joueur Croix) | None -> ()) ;
+	  (match chemin_cercle with Some l2 -> apply_morpion morpion l2 (creer_joueur Cercle) | None -> ()) ;
+	  ignore ck#restart ; state 
       | Some `EnterPause -> ck#pause ; Pause
       | Some `ResumePause -> ck#resume ; Playing
       | Some `Quit -> Exit

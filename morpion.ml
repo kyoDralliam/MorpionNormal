@@ -176,15 +176,6 @@ let rec get_geometry morpion path =
     | _ -> assert false
 
 
-let jouer_coup pos_joueur_cercle pos_joueur_croix morpion =
-  if pos_joueur_cercle = pos_joueur_croix
-  then apply_morpion morpion pos_joueur_croix (fun geom _ -> creer_grille geom)
-  else 
-    begin 
-      apply_morpion morpion pos_joueur_croix (creer_joueur Croix) ;
-      apply_morpion morpion pos_joueur_cercle (creer_joueur Cercle)
-    end
-
 let string_of_morpion_case =  function 
     Center -> "Center"
   | North -> "North"
