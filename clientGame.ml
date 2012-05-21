@@ -17,8 +17,7 @@ let main_one_player_client app (socket : #tcp_socket) =
 
   socket#set_blocking false ;
 
-  let waiting_host = new text ~string:"Waiting for an answer of the host" ~character_size:64 ~color:Color.black () in 
-  place_middle waiting_host 600. ;
+  let sh = new shader ~fragment:(ShaderSource.file "grey.fs") () in
 
   let process_quit_event b evt = 
     let open Event in 
@@ -46,14 +45,20 @@ let main_one_player_client app (socket : #tcp_socket) =
   let process_enter_pause_event b evt =
     let open Event in 
     match evt with
-      | KeyPressed { code = KeyCode.Space ; _ } -> ignore (send `EnterPause socket) ; Some Pause
+      | KeyPressed { code = KeyCode.Space ; _ } -> 
+	  ignore (send `EnterPause socket) ; 
+	  ck#pause ;
+	  Some Pause
       | _ -> None 
   in 
   
   let process_quit_pause_event b evt =
     let open Event in 
     match evt with
-      | KeyPressed { code = KeyCode.Space ; _ } -> ignore (send `ResumePause socket) ; Some Playing
+      | KeyPressed { code = KeyCode.Space ; _ } -> 
+	  ignore (send `ResumePause socket) ; 
+	  ck#resume ;
+	  Some Playing
       | _ -> None 
   in 
 
@@ -74,7 +79,7 @@ let main_one_player_client app (socket : #tcp_socket) =
     app#clear ~color:Color.white () ;
     draw app morpion ;
     camera2D#disable ;
-    time_before_exit#draw app ;
+    app#draw time_before_exit ;
     camera2D#enable ;
     app#display  
   in 
@@ -95,9 +100,10 @@ let main_one_player_client app (socket : #tcp_socket) =
   in 
 
   let display_pause () = 
-    app#clear ~color:Color.white () ;
-    draw app morpion ;
+    app#clear ~color:(Color.rgb 178 178 178) () ;
+    draw app ~shader:sh morpion ;
     camera2D#disable ;
+    app#draw ~shader:sh time_before_exit ;
     app#draw (new rectangle_shape ~size:(100.,100.) ~position:(100.,100.) ~fill_color:Color.red ~outline_color:Color.black ~outline_thickness:2.0 ()) ;
     camera2D#enable ;
     app#display  
@@ -109,10 +115,10 @@ let main_one_player_client app (socket : #tcp_socket) =
 
   let rec main_loop state = 
     let state = process_remote_messages state in 
-    if ck#get_time >= playing_time
-    then (ignore (send `EndTimer socket) ; ignore ck#restart) ;
     match state with 
       | Playing -> 
+	  if ck#get_time >= playing_time
+	  then (ignore (send `EndTimer socket) ; ignore ck#restart) ;
 	  let state = while_opt (fun () -> app#poll_event) 
 	    (process_event [
 	       process_quit_event ; 

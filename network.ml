@@ -46,41 +46,46 @@ let init_host (app : #render_window) =
 
   event_loop ()
 
-
+open Input
 
 let init_client (app : #render_window) = 
   let socket = new tcp_socket in
-  let buf = Buffer.create 0 in 
-
-  let enter_msg = new text ~string:"Connecting to server...\nEnter address and press Return\nEsc to exit" ~character_size:48 ~color:Color.black () in
-  place_middle enter_msg 200. ;
-
-  let input = new text ~character_size:48 ~color:Color.black () in
 
   let module M = struct type out = Quit | Connected | Continue end in 
 
-  let try_connection b = 
-    if socket#connect (new ip_address (`String (Buffer.contents buf))) connection_port = Done
-    then M.Connected
-    else b
-  in 
+  let enter_msg = new text ~string:"Connecting to server...\nEnter IP address and press Return\nEsc to exit" ~character_size:48 ~color:Color.black () in
+
+ let input_ip = 
+   let try_connection s = 
+     if socket#connect (new ip_address (`String s)) connection_port = Done
+     then Some M.Connected
+     else None
+   in 
+   new input (200., 35.) try_connection in 
+
+  place_middle enter_msg 200. ;
+  input_ip#set_position 300. 400. ;
 
   let process_event b evt =
     let open Event in 
     match evt with 
       | Closed -> app#close ; M.Quit 
       | KeyPressed { code = KeyCode.Escape ; _ } -> M.Quit 
-      | KeyPressed { code = KeyCode.Return ; _ } -> try_connection b 
-      | TextEntered { unicode } -> Buffer.add_char buf (Char.chr unicode) ; b
+      | KeyPressed { code = KeyCode.Return ; _ } -> 
+	  (match input_ip#return with Some x -> x | None -> b)
+      | KeyPressed { code = KeyCode.Back ; _ } -> input_ip#suppr ; b
+      | TextEntered { unicode } -> input_ip#add_text (Char.chr unicode) ; b
+      | MouseButtonPressed (_, {x;y}) -> 
+	  if input_ip#selected (app#convert_coords (x,y)) 
+	  then input_ip#set_focus true 
+	  else input_ip#set_focus false ; b
       | _ -> b
   in 
   
   let display () = 
     app#clear ~color:Color.white () ;
     app#draw enter_msg ;
-    input#set_string (Buffer.contents buf) ;
-    place_middle input 500. ;
-    app#draw input ;
+    app#draw input_ip ;
     app#display 
   in 
 

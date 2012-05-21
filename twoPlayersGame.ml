@@ -15,6 +15,8 @@ let main_two_players app =
   let grid = ref false in 
   let gagnant = ref None in 
 
+  (*let renderer = new render_texture 500 500 in *)
+
   let cursor = 
     let cercle_spr = new circle_shape ~radius:30. ~fill_color:Color.red ~outline_color:Color.black ~outline_thickness:2. () in
     let croix_spr = new rectangle_shape ~size:(40.,40.) ~fill_color:Color.blue ~outline_color:Color.black ~outline_thickness:2. () in 
@@ -58,7 +60,8 @@ let main_two_players app =
       | KeyReleased { code = KeyCode.Up ; _ } -> camera2D#activate_vertical 0 ; b
       | KeyReleased { code = KeyCode.Down ; _ } ->  camera2D#activate_vertical 0 ; b
       | KeyReleased { code = KeyCode.Space ; _ } -> grid := not !grid ; b
-      | MouseWheelMoved ( k , { x ; y } ) -> camera2D#scroll k x y ; b
+      | MouseWheelMoved ( k , { x ; y } ) -> 
+	  camera2D#scroll k x y ; b
       | MouseButtonPressed (_, { x ; y }) -> 
 	  if !gagnant = None 
 	  then 

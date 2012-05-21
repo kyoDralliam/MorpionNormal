@@ -22,6 +22,7 @@ class jauge ?(t0=0.) ?(tmax=1.) ?(bg_color=Color.white) ?(begin_color=Color.yell
 object (self)
 
   inherit transformable ?position ?rotation ?scale ?origin () 
+  inherit drawable ~overloaded:`draw (Drawable.inherits ())
 
   val content = new vertex_array ~primitive_type:Quads content0 
   val cadre = new rectangle_shape ~size ~fill_color:bg_color ~outline_color:Color.black ~outline_thickness:2.0 ()
@@ -39,10 +40,16 @@ object (self)
 	 ~position:(addv pos (w t) 0.) 
 	 ~color:(interpolation begin_color end_color t) ()) 
       
-  method draw : 'a . (#render_target as 'a) -> unit = 
-    fun app ->
-      app#draw ~transform:self#get_transform cadre ;
-      app#draw ~transform:self#get_transform content 
+   method draw app blend_mode transform0 texture shader = 
+      let transform = self#get_transform#combine transform0 in 
+      app#draw 
+	~blend_mode
+	~transform
+	~texture ~shader cadre ;
+      app#draw 
+	~blend_mode
+	~transform
+	~texture ~shader content 
 
   method set_max_val maxval = tmax <- maxval ; self#update 0.0
 

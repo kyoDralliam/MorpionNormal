@@ -36,6 +36,8 @@ let main_one_player_host app (socket : #tcp_socket) =
   
   let time_before_exit = new Jauge.jauge ~tmax:playing_time ~position:(50.,50.) ~bg_color:Color.blue (300., 50.) in 
   
+  let sh = new shader ~fragment:(ShaderSource.file "grey.fs") () in
+
   let process_quit_event b evt = 
     let open Event in 
     match evt with 
@@ -62,14 +64,14 @@ let main_one_player_host app (socket : #tcp_socket) =
   let process_enter_pause_event b evt =
     let open Event in 
     match evt with
-      | KeyPressed { code = KeyCode.Space ; _ } -> ignore (send `EnterPause socket) ; Some Pause
+      | KeyPressed { code = KeyCode.Space ; _ } -> ignore (send `EnterPause socket) ; ck#pause ; Some Pause
       | _ -> None 
   in 
   
   let process_quit_pause_event b evt =
     let open Event in 
     match evt with
-      | KeyPressed { code = KeyCode.Space ; _ } -> ignore (send `ResumePause socket) ; Some Playing
+      | KeyPressed { code = KeyCode.Space ; _ } -> ignore (send `ResumePause socket) ; ck#resume ; Some Playing
       | _ -> None 
   in 
 
@@ -90,15 +92,16 @@ let main_one_player_host app (socket : #tcp_socket) =
     app#clear ~color:Color.white () ;
     draw app morpion ;
     camera2D#disable ;
-    time_before_exit#draw app ;
+    app#draw time_before_exit ;
     camera2D#enable ;
     app#display   
   in 
 
   let display_pause () = 
-    app#clear ~color:Color.white () ;
-    draw app morpion ;
+    app#clear ~color:(Color.rgb 178 178 178) () ;
+    draw app ~shader:sh morpion ;
     camera2D#disable ;
+    app#draw ~shader:sh time_before_exit ;
     app#draw (new rectangle_shape ~size:(100.,100.) ~position:(100.,100.) ~fill_color:Color.red ~outline_color:Color.black ~outline_thickness:2.0 ()) ;
     camera2D#enable ;
     app#display  
@@ -122,7 +125,7 @@ let main_one_player_host app (socket : #tcp_socket) =
       match play#get_result with 
       | Some l1, Some l2 when l1 = l2 -> 
 	  send (`AddGrid l1) socket ;
-	  apply_morpion morpion l1 (fun geom _ -> creer_grille geom)
+	  apply_morpion morpion l1 (fun geom _ -> creer_grille geom) 
       | (x, y) as chemins -> 
 	  send (`AddNormal chemins) socket ; 
 	  (match x with Some l1 -> apply_morpion morpion l1 (creer_joueur Croix) | None -> ()) ;

@@ -11,6 +11,7 @@ type geometry_grille = { geometry : geometry ; inter : float ; side : float }
 type morpion = 
     Grille of morpion array array * geometry_grille * drawable 
   | Coup of joueur * geometry * drawable * drawable
+  (*| TemporaryCoup of joueur * geometry * drawable * drawable*)
   | Vide of geometry * drawable
 
 type morpion_case = 
@@ -125,16 +126,22 @@ let creer_joueur joueur geom img0 =
   Coup (joueur, geom, img, img0)
 
 
-let rec draw (target : #render_target) = function 
-  | Vide (_, img) -> target#draw img
-  | Coup (_, _, img, img0) -> target#draw img0 ; target#draw img
-  | Grille (m, _, img) -> target#draw img ; Array.iter (Array.iter (draw target)) m
+let rec draw (target : #render_target) ?blend_mode ?texture ?transform ?shader  = function 
+  | Vide (_, img) -> target#draw ?blend_mode ?texture ?transform ?shader img
+  | Coup (_, _, img, img0) -> 
+      target#draw ?blend_mode ?texture ?transform ?shader img0 ; 
+      target#draw ?blend_mode ?texture ?transform ?shader img
+  | Grille (m, _, img) -> 
+      target#draw ?blend_mode ?texture ?transform ?shader img ; 
+      Array.iter (Array.iter (draw target ?blend_mode ?texture ?transform ?shader)) m
   
 
 let position_coup_from_float pos geom entre cote = 
   let antipos x = 
     let ik = int_of_float (x /. entre) in 
-    [| -1 ; 0 ; 0 ; 0; 0; 0 ; 0 ; 0 ; 0; -1 ; 1; 1; 1; 1; 1; 1; 1; 1; -1; 2; 2; 2; 2; 2; 2; 2; 2; -1 |].(ik) 
+    if 0 <= ik && ik < 28
+    then [| -1 ; 0 ; 0 ; 0; 0; 0 ; 0 ; 0 ; 0; -1 ; 1; 1; 1; 1; 1; 1; 1; 1; -1; 2; 2; 2; 2; 2; 2; 2; 2; -1 |].(ik) 
+    else -1
   in 
   antipos ((fst pos) -. (fst geom.position)), antipos ((snd pos) -. (snd geom.position))
 
@@ -242,3 +249,28 @@ let rec process_victoire joueur morpion l =
       replace_case (creer_joueur joueur) morpion l' ;
       process_victoire joueur morpion l' 
   else false
+
+
+let path_for_rect morpion rect = 
+  let get = function Some x -> x | None -> [] in 
+  let (&) f x = f x in
+  let c1 = get & get_position_coup (rect.left, rect.top) morpion in 
+  let c2 = get & get_position_coup (rect.left+.rect.width, rect.top) morpion in 
+  let c3 = get & get_position_coup (rect.left, rect.top+.rect.height) morpion in 
+  let c4 = get & get_position_coup (rect.left+.rect.width, rect.top+.rect.height) morpion in 
+  let rec common_factor = function 
+    | x::xs, y::ys when x = y -> x::(common_factor (xs,ys))
+    | _, _ -> []
+  in 
+  common_factor (c1, common_factor (c2, common_factor (c3,c4)))
+
+let draw_at_path (target : #render_target) ?blend_mode ?texture ?transform ?shader morpion chemin =
+  let rec get_morpion = function 
+    | [], x -> x
+    | x::xs, Grille (m, _, _) -> get_morpion (xs, (access m x))
+    | _, _ -> assert false
+  in 
+  draw target ?blend_mode ?texture ?transform ?shader (get_morpion (chemin, morpion)) ; 
+  (8./.28.)**(float (List.length chemin))
+  
+  
