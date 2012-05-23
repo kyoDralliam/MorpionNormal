@@ -1,214 +1,116 @@
-open OcsfmlWindow
 open OcsfmlGraphics
+open MorpionDef
+open MorpionDraw
 
+module DrawFunctionImplementation : DrawFunction =
+struct
 
-type joueur = Croix | Cercle 
+  let draw_grid (target : #render_target) ?blend_mode ?texture ?transform ?shader depth pos0 dim0 =
+    let carre = new rectangle_shape  
+      ~position:pos0 
+      ~size:(dim0, dim0)
+      ~fill_color:(Color.rgb 128 128 128) 
+      ~outline_color:Color.black 
+      ~outline_thickness:(min 2.0 (dim0/.200.)) () 
+    in  
+    target#draw ?blend_mode ?texture ?transform ?shader carre
+    
 
-type geometry = { position : float * float ; dimension : float }
-
-type geometry_grille = { geometry : geometry ; inter : float ; side : float } 
-
-type morpion = 
-    Grille of morpion array array * geometry_grille * drawable 
-  | Coup of joueur * geometry * drawable * drawable
-  (*| TemporaryCoup of joueur * geometry * drawable * drawable*)
-  | Vide of geometry * drawable
-
-type morpion_case = 
-    Center 
-  | North 
-  | NorthEast 
-  | East 
-  | SouthEast 
-  | South 
-  | SouthWest 
-  | West 
-  | NorthWest 
-
-let coords_from_morpion_case = function 
-    Center -> 1, 1
-  | North -> 1, 0
-  | NorthEast -> 2, 0
-  | East -> 2, 1
-  | SouthEast -> 2, 2
-  | South -> 1, 2
-  | SouthWest -> 0, 2
-  | West -> 0, 1
-  | NorthWest -> 0, 0
-
-let access t c = let (x,y) = coords_from_morpion_case c in t.(x).(y)
-let change t c a = let (x,y) = coords_from_morpion_case c in t.(x).(y) <- a
-
-(* faut ptet arréter de faire l'idiot... 
-module String = struct
-    let get t c = let (x,y) = coords_from_morpion_case c in t.(x).(y)
-    let set t c a = let (x,y) = coords_from_morpion_case c in t.(x).(y) <- a
-end
- *)
-let morpion_case_from_coords x y = 
-  match x with  
-    | 0 -> 
-	begin match y with 
-	  | 0 -> NorthWest
-	  | 1 -> West
-	  | 2 -> SouthWest
-	  | _ -> assert false
-	end
-    | 1 ->
-	begin match y with 
-	  | 0 -> North
-	  | 1 -> Center
-	  | 2 -> South
-	  | _ -> assert false
-	end
-    | 2 ->
-	begin match y with 
-	  | 0 -> NorthEast
-	  | 1 -> East
-	  | 2 -> SouthEast
-	  | _ -> assert false
-	end
-    | _ -> assert false
-
-type chemin = morpion_case list 
-
-let creer_grille geometry =
-  let inter = geometry.dimension /. 28. in
-  let dimension = 8. *. inter in
-
-  let carre = new rectangle_shape  
-    ~position:geometry.position 
-    ~size:(geometry.dimension, geometry.dimension)
-    ~fill_color:(Color.rgb 128 128 128) 
-    ~outline_color:Color.black 
-    ~outline_thickness:(min 2.0 (geometry.dimension/.20.)) () in  
- 
-  let pos k = float k *. (dimension +. inter) +. inter in
-  let creer_vide i j = 
-    let position = fst geometry.position +. pos i, snd geometry.position +. pos j in 
+  let draw_vide (target : #render_target) ?blend_mode ?texture ?transform ?shader depth pos0 dim0 =
     let petit_carre = new rectangle_shape  
-      ~position 
-      ~size:(dimension, dimension) 
+      ~position:pos0
+      ~size:(dim0, dim0) 
       ~fill_color:Color.white
       ~outline_color:Color.black
-      ~outline_thickness:(min 2.0 (dimension/.20.)) () 
+      ~outline_thickness:(min 2.0 (dim0/.200.)) () 
     in  
-    Vide ({ position ; dimension }, (petit_carre :> drawable)) 
-  in  Grille (Array.init 3 (fun i -> Array.init 3 (creer_vide i)), { geometry ; inter ; side = dimension }, (carre :> drawable))
+    target#draw ?blend_mode ?texture ?transform ?shader petit_carre
 
 
-let creer_cercle { position ; dimension } =
-  let position = (fst position) +. (dimension/.4.), (snd position) +. (dimension/.4.) in 
-  let circle = new circle_shape  
-    ~radius:(dimension/.4.) 
-    ~position 
-    ~fill_color:Color.red
-    ~outline_color:Color.black 
-    ~outline_thickness:(min 2.0 (dimension/.20.)) ()
-  in (circle :> drawable)
+  let draw_cercle (target : #render_target) ?blend_mode ?texture ?transform ?shader depth pos0 dim0 fill_color =
+    let position = (fst pos0) +. (dim0/.4.), (snd pos0) +. (dim0/.4.) in 
+    let circle = new circle_shape  
+      ~radius:(dim0/.4.) 
+      ~position 
+      ~fill_color
+      ~outline_color:Color.black 
+      ~outline_thickness:(min 2.0 (dim0/.200.)) ()
+    in 
+    target#draw ?blend_mode ?texture ?transform ?shader circle
 
-let creer_croix { position ; dimension } = 
-  let position = (fst position) +. (dimension/.4.), (snd position) +. (dimension/.4.) in
-  let carre = new rectangle_shape  
-    ~size:(dimension/.2.,dimension/.2.) 
-    ~position 
-    ~fill_color:Color.blue
-    ~outline_color:Color.black 
-    ~outline_thickness:(min 2.0 (dimension/.20.)) ()
-  in (carre :> drawable)
+  let draw_croix (target : #render_target) ?blend_mode ?texture ?transform ?shader depth pos0 dim0 fill_color =    
+    let position = (fst pos0) +. (dim0/.4.), (snd pos0) +. (dim0/.4.) in 
+    let carre = new rectangle_shape  
+      ~size:(dim0/.2.,dim0/.2.) 
+      ~position 
+      ~fill_color
+      ~outline_color:Color.black 
+      ~outline_thickness:(min 2.0 (dim0/.200.)) ()
+    in 
+    target#draw ?blend_mode ?texture ?transform ?shader carre
 
-let creer_joueur joueur geom img0 =
-  let img = 
-    match joueur with 
-      | Croix -> creer_croix geom 
-      | Cercle -> creer_cercle geom
-  in 
-  Coup (joueur, geom, img, img0)
+  let draw_joueur target ?blend_mode ?texture ?transform ?shader depth pos0 dim0 = function
+    | Croix -> draw_croix target ?blend_mode ?texture ?transform ?shader depth pos0 dim0 Color.blue
+    | Cercle -> draw_cercle target ?blend_mode ?texture ?transform ?shader depth pos0 dim0 Color.red
 
+  let draw_joueur_tmp target ?blend_mode ?texture ?transform ?shader depth pos0 dim0 = function
+    | Croix -> draw_croix target ?blend_mode ?texture ?transform ?shader depth pos0 dim0 
+	(Color.rgb 160 160 255)
+    | Cercle -> draw_cercle target ?blend_mode ?texture ?transform ?shader depth pos0 dim0 
+	(Color.rgb 255 160 160)
+end
 
-let rec draw (target : #render_target) ?blend_mode ?texture ?transform ?shader  = function 
-  | Vide (_, img) -> target#draw ?blend_mode ?texture ?transform ?shader img
-  | Coup (_, _, img, img0) -> 
-      target#draw ?blend_mode ?texture ?transform ?shader img0 ; 
-      target#draw ?blend_mode ?texture ?transform ?shader img
-  | Grille (m, _, img) -> 
-      target#draw ?blend_mode ?texture ?transform ?shader img ; 
-      Array.iter (Array.iter (draw target ?blend_mode ?texture ?transform ?shader)) m
+module DrawMorpion = DrawMorpion(GeometryParameters.DefaultParameters)(DrawFunctionImplementation)
+
+let draw = DrawMorpion.draw_morpion
   
+module Select = MorpionSelect.Select(GeometryParameters.DefaultParameters)
 
-let position_coup_from_float pos geom entre cote = 
-  let antipos x = 
-    let ik = int_of_float (x /. entre) in 
-    if 0 <= ik && ik < 28
-    then [| -1 ; 0 ; 0 ; 0; 0; 0 ; 0 ; 0 ; 0; -1 ; 1; 1; 1; 1; 1; 1; 1; 1; -1; 2; 2; 2; 2; 2; 2; 2; 2; -1 |].(ik) 
-    else -1
-  in 
-  antipos ((fst pos) -. (fst geom.position)), antipos ((snd pos) -. (snd geom.position))
+let rec access_at_path = function 
+  | [], x -> x
+  | hd :: tl, Grille m -> access_at_path (tl, access m hd)
+  | _ -> assert false
 
+let get_position_coup pos0 dim0 morpion pos = 
+  let pos' = fst pos -. fst pos0, snd pos -. snd pos0 in 
+  Select.select pos' dim0 morpion
 
-let rec get_position_coup_base base pos = function 
-  | Coup _ -> None
-  | Vide _ -> Some []
-  | Grille (m, { geometry ; inter ; side }, _) -> 
-      let (x,y) = position_coup_from_float pos geometry inter side in 
-      if x < 0 || x > 2 || y < 0 || y > 2 
-      then base 
-      else 
-	match get_position_coup_base base pos m.(x).(y) with 
-	  | None -> None 
-	  | Some l -> Some ((morpion_case_from_coords x y) :: l)
+let get_position_coup_vide pos0 dim0 morpion pos = 
+  let pos' = fst pos -. fst pos0, snd pos -. snd pos0 in 
+  let l = Select.select pos' dim0 morpion in
+  match access_at_path (l, morpion) with 
+    | Vide -> Some l
+    | _ -> None 
 
-let get_position_coup = get_position_coup_base (Some [])
+let rec modify_at_path = function 
+  | [a], Grille m -> modify m a
+  | hd :: tl, Grille m -> modify_at_path (tl, access m hd)
+  | _ -> assert false 
 
-let get_position_coup_vide = get_position_coup_base None
+let rec get_geometry_at_path pos0 dim0 = function 
+  | [] -> pos0, dim0
+  | x::xs -> 
+      let open GeometryParameters.DefaultParameters in 
+      let (i,j) = coords_from_morpion_case x in
+      let pos' = (fst pos0 +. position dim0 i, snd pos0 +. position dim0 j)  in 
+      get_geometry_at_path pos' (dim0*.ratio) xs
 
-let rec get_content morpion path = 
-    match path, morpion with 
-    | [a], Grille (m, _, _) ->
-	let (x,y) = coords_from_morpion_case a in 
-	(match m.(x).(y) with 
-	  | Vide (geom, img) -> (m, x, y, geom, img)
-	  | _ -> assert false)
-    | hd :: tl, Grille (m, _, _) -> get_content (access m hd) tl
-    | _ -> assert false
+let split_last l = 
+  let open List in 
+  let l0 = rev l in 
+  (rev (tl l0), hd l0)
 
-let apply_morpion morpion path f = 
-  let (m, x, y, geom, img) = get_content morpion path in 
-  m.(x).(y) <- f geom img
-
-let rec get_geometry morpion path = 
-  match path, morpion with 
-    | [], (Grille (_, {geometry ; _}, _) | Coup (_,geometry, _, _) | Vide (geometry, _)) -> geometry
-    | hd :: tl, Grille (m, _, _) -> get_geometry (access m hd) tl
-    | _ -> assert false
-
-
-let string_of_morpion_case =  function 
-    Center -> "Center"
-  | North -> "North"
-  | NorthEast -> "NorthEast"
-  | East -> "East"
-  | SouthEast -> "SouthEast"
-  | South -> "South"
-  | SouthWest -> "SouthWest"
-  | West -> "West"
-  | NorthWest -> "NorthWest"
-
-let print_position_coup = function  
-  | None -> print_endline "pas de coup"
-  | Some l -> print_endline (String.concat ", " (List.map string_of_morpion_case l))
-
+let remove_last l = fst (split_last l)
 
 let victoire morpion l = 
-  let rec get_grid = function 
-    | [x], Grille (m, _, _) -> (m, x) 
-    | x :: xs, Grille (m, _, _) -> get_grid (xs, (access m x))
-    | _ -> assert false 
+  let grid_path, x = split_last l in 
+  let m = match access_at_path (grid_path,morpion) with
+    | Grille m -> m
+    | _ -> assert false
   in 
-  let m, x = get_grid (l, morpion) in 
   let cmp a b = 
     match (access m a), (access m b) with 
-      | Coup (j1, _, _, _), Coup (j2, _, _, _) -> j1 = j2
+      | Coup j1, Coup j2 -> j1 = j2
       | _ -> false 
   in 
   let is_same a b c = cmp a b && cmp b c in
@@ -224,21 +126,6 @@ let victoire morpion l =
     | NorthWest -> (is_same NorthWest North NorthEast) || (is_same SouthEast Center NorthWest) || (is_same SouthWest West NorthWest)
 
 
-
-let rec replace_case f morpion path = 
-    match path, morpion with 
-    | [a], Grille (m, _, _) ->
-	let geom, img0 = match access m a with 
-	  | Vide (geom, img0) -> geom, img0
-	  | Coup (_, geom, _, img0) -> geom, img0
-	  | Grille (_,{geometry; _},img0) -> geometry, img0
-	in change m a (f geom img0)
-    | hd :: tl, Grille (m, _, _) -> replace_case f (access m hd) tl
-    | _ -> assert false
-
-
-let remove_last l = List.(rev (tl (rev l)))
-
 let rec process_victoire joueur morpion l = 
   if victoire morpion l 
   then 
@@ -246,31 +133,39 @@ let rec process_victoire joueur morpion l =
     then true (* victoire globale *)
     else (* il reste des niveaux au dessus *)
       let l' = remove_last l in 
-      replace_case (creer_joueur joueur) morpion l' ;
+      modify_at_path (l',morpion) (fun _ -> Coup joueur) ;
+      (* ATTENTION penser à redessiner *)
       process_victoire joueur morpion l' 
   else false
 
 
-let path_for_rect morpion rect = 
-  let get = function Some x -> x | None -> [] in 
-  let (&) f x = f x in
-  let c1 = get & get_position_coup (rect.left, rect.top) morpion in 
-  let c2 = get & get_position_coup (rect.left+.rect.width, rect.top) morpion in 
-  let c3 = get & get_position_coup (rect.left, rect.top+.rect.height) morpion in 
-  let c4 = get & get_position_coup (rect.left+.rect.width, rect.top+.rect.height) morpion in 
+let path_for_rect pos0 dim0 morpion rect = 
+  let c1 = get_position_coup pos0 dim0 morpion (rect.left, rect.top) in 
+  let c2 = get_position_coup pos0 dim0 morpion (rect.left+.rect.width, rect.top) in 
+  let c3 = get_position_coup pos0 dim0 morpion (rect.left, rect.top+.rect.height) in 
+  let c4 = get_position_coup pos0 dim0 morpion (rect.left+.rect.width, rect.top+.rect.height) in 
   let rec common_factor = function 
     | x::xs, y::ys when x = y -> x::(common_factor (xs,ys))
     | _, _ -> []
   in 
   common_factor (c1, common_factor (c2, common_factor (c3,c4)))
 
-let draw_at_path (target : #render_target) ?blend_mode ?texture ?transform ?shader morpion chemin =
-  let rec get_morpion = function 
-    | [], x -> x
-    | x::xs, Grille (m, _, _) -> get_morpion (xs, (access m x))
-    | _, _ -> assert false
-  in 
-  draw target ?blend_mode ?texture ?transform ?shader (get_morpion (chemin, morpion)) ; 
+let draw_at_path (target : #render_target) ?blend_mode ?texture ?transform ?shader depth pos dim morpion chemin =
+  draw target ?blend_mode ?texture ?transform ?shader depth pos dim 
+    (access_at_path (chemin, morpion)) ; 
   (8./.28.)**(float (List.length chemin))
   
   
+let draw_with_rect  (target : #render_target) ?blend_mode ?texture ?transform ?shader pos0 dim0 morpion rect =
+  let chemin_draw = path_for_rect pos0 dim0 morpion rect in
+  let (pos, dim) = get_geometry_at_path pos0 dim0 chemin_draw in 
+  Printf.printf "%f %f\n" (fst pos) (snd pos) ;
+  draw target ?blend_mode ?texture ?transform ?shader ~rect (List.length chemin_draw) pos dim 
+    (access_at_path (chemin_draw, morpion)) 
+
+let print_case pos0 dim0 = function  
+  | None -> Printf.printf "pas de coup\n"
+  | Some l -> 
+      let ((x,y), dim) = get_geometry_at_path pos0 dim0 l in   
+      Printf.printf "%s => %f %f %f"  (String.concat ", " (List.map string_of_morpion_case l))
+	x y dim

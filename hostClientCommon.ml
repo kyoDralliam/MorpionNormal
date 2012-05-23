@@ -1,6 +1,6 @@
 open OcsfmlSystem
 open OcsfmlNetwork
-open Morpion
+open MorpionDef
 
 type pause_event = [ `EnterPause | `ResumePause | `Quit ]
 type client_sent_event = [ `Played of chemin | `EndTimer | pause_event ]

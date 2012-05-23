@@ -1,15 +1,16 @@
-
 open OcsfmlWindow
 open OcsfmlGraphics
 open Camera2d
+open MorpionDef
 open Morpion
 open Common
 
-
+let morpion_width = 500.
+let morpion_pos = 150.0,50.0
 
 let main_two_players app = 
-  let morpion = creer_grille { position = 150.,50. ; dimension = 500. } in 
-  let camera2D = camera2D app in 
+  let morpion = creer_grille () in 
+  let camera2D = camera2D app (float app#get_width) (float app#get_height) in 
   
   let player = ref Croix in 
   let grid = ref false in 
@@ -66,14 +67,14 @@ let main_two_players app =
 	  if !gagnant = None 
 	  then 
 	    let pos = app#convert_coords (x,y) in 
-	    let path = get_position_coup_vide pos morpion in 
+	    let path = get_position_coup_vide morpion_pos morpion_width morpion pos in 
             begin match path with 
 	      | None -> b
 	      | Some l -> 
 		  if !grid
-		  then apply_morpion morpion l (fun geom _ -> creer_grille geom)
+		  then modify_at_path (l,morpion) (fun _ -> creer_grille ())
 		  else ( 
-		    apply_morpion morpion l (creer_joueur !player) ;
+		    modify_at_path (l,morpion) (fun _ -> creer_joueur !player) ;
 		    if process_victoire !player morpion l 
 		    then gagnant := Some !player 
 		    else player := (match !player with Croix -> Cercle | Cercle -> Croix) 
@@ -86,7 +87,7 @@ let main_two_players app =
 
   let display () = 
     app#clear ~color:Color.white () ;
-    draw app morpion ;
+    draw app 0 morpion_pos morpion_width morpion ;
     camera2D#disable ;
     cursor () ;
     gagne () ;

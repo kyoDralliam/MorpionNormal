@@ -2,15 +2,17 @@ open OcsfmlWindow
 open OcsfmlGraphics
 open OcsfmlNetwork
 open Camera2d
+open MorpionDef
 open Morpion
 open Common
 open HostClientCommon
 
-
+let morpion_width = 500.
+let morpion_pos = 150.0,50.0
 
 let main_one_player_client app (socket : #tcp_socket) =  
-  let morpion = creer_grille { position = 150.,50. ; dimension = 500. } in 
-  let camera2D = camera2D app in 
+  let morpion = creer_grille () in 
+  let camera2D = camera2D app (float app#get_width) (float app#get_height) in 
   
   let ck = new my_clock in 
   let time_before_exit = new Jauge.jauge ~tmax:playing_time ~position:(50.,50.) ~bg_color:Color.blue (300., 50.) in 
@@ -67,17 +69,19 @@ let main_one_player_client app (socket : #tcp_socket) =
     match evt with
       | MouseButtonPressed (_, {x ; y}) -> 
 	  let pos = app#convert_coords (x,y) in 
-	  let path = get_position_coup_vide pos morpion in 
-          (match path with 
+	  let path = get_position_coup_vide morpion_pos morpion_width morpion pos in 
+          begin match path with 
 	    | None -> ()
-	    | Some l -> ignore (send (`Played l) socket)) ;
+	    | Some l -> ignore (send (`Played l) socket) ; 
+		modify_at_path (l, morpion) (fun _ -> creer_joueur_tmp Cercle)
+	  end ;
 	  Some b
       | _ -> None 
   in 
   
   let display () = 
     app#clear ~color:Color.white () ;
-    draw app morpion ;
+    draw app 0 morpion_pos morpion_width morpion ;
     camera2D#disable ;
     app#draw time_before_exit ;
     camera2D#enable ;
@@ -87,11 +91,15 @@ let main_one_player_client app (socket : #tcp_socket) =
  let process_remote_messages state = 
     match receive socket with 
       | Some (`AddGrid chemin) -> 
-	  apply_morpion morpion chemin (fun geom _ -> creer_grille geom) ; 
+	  modify_at_path (chemin, morpion) (fun _ -> creer_grille ()) ;
 	  ignore ck#restart ; state
       | Some (`AddNormal (chemin_croix, chemin_cercle)) -> 
-	  (match chemin_croix with Some l1 -> apply_morpion morpion l1 (creer_joueur Croix) | None -> ()) ;
-	  (match chemin_cercle with Some l2 -> apply_morpion morpion l2 (creer_joueur Cercle) | None -> ()) ;
+	  (match chemin_croix with 
+	     | Some l1 -> modify_at_path (l1, morpion) (fun _ -> creer_joueur Croix) 
+	     | None -> ()) ;
+	  (match chemin_cercle with 
+	     | Some l2 -> modify_at_path (l2, morpion) (fun _ -> creer_joueur Cercle) 
+	     | None -> ()) ;
 	  ignore ck#restart ; state 
       | Some `EnterPause -> ck#pause ; Pause
       | Some `ResumePause -> ck#resume ; Playing
@@ -101,7 +109,7 @@ let main_one_player_client app (socket : #tcp_socket) =
 
   let display_pause () = 
     app#clear ~color:(Color.rgb 178 178 178) () ;
-    draw app ~shader:sh morpion ;
+    draw app ~shader:sh 0 morpion_pos morpion_width  morpion ;
     camera2D#disable ;
     app#draw ~shader:sh time_before_exit ;
     app#draw (new rectangle_shape ~size:(100.,100.) ~position:(100.,100.) ~fill_color:Color.red ~outline_color:Color.black ~outline_thickness:2.0 ()) ;
